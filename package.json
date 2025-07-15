@@ -7,7 +7,7 @@
     "build": "pnpm dlx prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "migrate": "pnpm dlx prisma generate && env $(cat .env.local | xargs) pnpm dlx prisma migrate dev"
+    "migrate": "pnpm dlx prisma generate && env $(cat .env | xargs) pnpm dlx prisma migrate dev"
   },
   "prisma": {
     "schema": "src/db/schema.prisma"
