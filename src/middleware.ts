@@ -47,6 +47,7 @@ export async function updateSession(request: NextRequest) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    
     if (user) {
       return NextResponse.redirect(
         new URL("/", process.env.NEXT_PUBLIC_BASE_URL),
@@ -55,34 +56,62 @@ export async function updateSession(request: NextRequest) {
   }
 
   const { searchParams, pathname } = new URL(request.url);
-
+  
   if (!searchParams.get("noteId") && pathname === "/") {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-
+    
     if (user) {
-      const { newestNoteId } = await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_URL}/api/fetch-newest-note?userId=${user.id}`,
-      ).then((res) => res.json());
+      try {
+        // Query database directly instead of making fetch calls
+        const { data: notes, error } = await supabase
+          .from('Note')
+          .select('id')
+          .eq('authorId', user.id)
+          .order('createdAt', { ascending: false })
+          .limit(1);
 
-      if (newestNoteId) {
-        const url = request.nextUrl.clone();
-        url.searchParams.set("noteId", newestNoteId);
-        return NextResponse.redirect(url);
-      } else {
-        const { noteId } = await fetch(
-          `${process.env.NEXT_PUBLIC_BASE_URL}/api/create-new-note?userId=${user.id}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
-        ).then((res) => res.json());
-        const url = request.nextUrl.clone();
-        url.searchParams.set("noteId", noteId);
-        return NextResponse.redirect(url);
+        if (error) {
+          console.error('Database error:', error);
+          return supabaseResponse;
+        }
+
+        let noteId;
+        
+        if (notes && notes.length > 0) {
+          // Use existing note
+          noteId = notes[0].id;
+        } else {
+          // Create new note directly in database
+          const { data: newNote, error: createError } = await supabase
+            .from('Note')
+            .insert([
+              {
+                title: 'New Note',
+                content: '',
+                authorId: user.id,
+              }
+            ])
+            .select('id')
+            .single();
+
+          if (createError) {
+            console.error('Create note error:', createError);
+            return supabaseResponse;
+          }
+
+          noteId = newNote.id;
+        }
+
+        if (noteId) {
+          const url = request.nextUrl.clone();
+          url.searchParams.set("noteId", noteId);
+          return NextResponse.redirect(url);
+        }
+      } catch (error) {
+        console.error('Middleware error:', error);
+        return supabaseResponse;
       }
     }
   }
