@@ -17,7 +17,9 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {}
+          } catch {
+            
+          }
         },
       },
     },
@@ -27,14 +29,32 @@ export async function createClient() {
 }
 
 export async function getUser() {
-  const { auth } = await createClient();
+  try {
+    const client = await createClient();
+    
+    
+    const { data: session, error: sessionError } = await client.auth.getSession();
+    
+    if (sessionError || !session.session) {
+      
+      return null;
+    }
+    
+    
+    const { data, error } = await client.auth.getUser();
 
-  const userObject = await auth.getUser();
+    if (error) {
+      
+      if (error.message !== "Auth session missing!") {
+        console.error("Auth error:", error);
+      }
+      return null;
+    }
 
-  if (userObject.error) {
-    console.error(userObject.error);
+    return data.user;
+  } catch (error) {
+    
+    console.error("Failed to get user:", error);
     return null;
   }
-
-  return userObject.data.user;
 }
